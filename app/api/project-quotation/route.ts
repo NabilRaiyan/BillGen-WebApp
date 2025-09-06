@@ -1,12 +1,26 @@
-import { NextResponse } from "next/server";
+import { createClient } from '@supabase/supabase-js';
 
-export async function GET(){
-    const quotations = [
-        { id: 1, qname: 'Project Quotation System', status: 'In Progress' },
-        { id: 2, qname: 'Client Onboarding Portal', status: 'Completed' },
-        { id: 3, qname: 'Marketing Website Redesign', status: 'Pending' },
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
+export async function GET() {
+  const { data, error } = await supabase
+    .from('quotations') // use full schema
+    .select('*');
 
-    ];
-    return NextResponse.json(quotations);
+  console.log({ error, data }); // debug logs
+
+  if (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  return new Response(JSON.stringify(data), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }

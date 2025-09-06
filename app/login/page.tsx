@@ -3,7 +3,7 @@
 import { useForm, SubmitHandler } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { supabase } from '@/lib/supabase/client' // Changed from createClient to supabase
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import Swal from 'sweetalert2'
@@ -19,7 +19,7 @@ type LoginInput = z.infer<typeof loginSchema>
 export default function LoginForm() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const supabase = createClient()
+  // Removed: const supabase = createClient() since we're importing it directly
 
   const {
     register,
@@ -63,7 +63,7 @@ export default function LoginForm() {
             timer: 2000, // The pop-up will disappear after 2 seconds
             timerProgressBar: true,
         }).then(() => {
-            router.push('/');
+            router.push('/dashboard');
             router.refresh();
         });
     }
