@@ -15,6 +15,11 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 
+
+interface SidebarProps {
+  className?: string;
+}
+
 const navItems: { name: string; href: string; icon: LucideIcon }[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Quotations", href: "/dashboard/quotations", icon: FileText },
@@ -29,7 +34,7 @@ const quickManageItems: { name: string; href: string; icon: LucideIcon }[] = [
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
   const currentYear = new Date().getFullYear();
 

@@ -10,7 +10,7 @@ export async function GET() {
     .from('quotations') // use full schema
     .select('*');
 
-  console.log({ error, data }); // debug logs
+  // console.log({ error, data }); // debug logs
 
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), {

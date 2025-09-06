@@ -1,10 +1,15 @@
-// app/dashboard/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
+import DynamicCard from '@/app/components/ui/DynamicCard';
 import { RouteGuard } from '@/app/components/RouteGuard';
-import { supabase } from '@/lib/supabase/client';
-import { User } from '@supabase/supabase-js';
+
+interface Stats {
+  invoices: number;
+  bills: number;
+  pos: number;
+  quotations: number;
+}
 
 interface Quotation {
   id: string;
@@ -13,104 +18,106 @@ interface Quotation {
   total_amount: number;
 }
 
-function DashboardContent() {
+export default function DashboardPage() {
+  const [stats, setStats] = useState<Stats | null>(null);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingQuotations, setLoadingQuotations] = useState(true);
 
+  // Fetch stats
   useEffect(() => {
-    // Check current user
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
-      console.log('Dashboard - Current user:', session?.user);
+    const fetchStats = async () => {
+      try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to fetch stats');
+        setStats(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingStats(false);
+      }
     };
-    checkUser();
+    fetchStats();
   }, []);
 
+  // Fetch latest quotations (limit 5)
   useEffect(() => {
     const fetchQuotations = async () => {
       try {
-        const res = await fetch('/api/project-quotation');
+        const res = await fetch('/api/project-quotation?limit=5');
         const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch quotations');
-        }
-
+        if (!res.ok) throw new Error(data.error || 'Failed to fetch quotations');
         setQuotations(data);
       } catch (err) {
-        // Type-safe error handling
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('An unexpected error occurred');
-        }
+        console.error(err);
       } finally {
-        setLoading(false);
+        setLoadingQuotations(false);
       }
     };
-
     fetchQuotations();
   }, []);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
-
-  return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          {user && (
-            <p className="text-gray-600 mt-2">Welcome, {user.email}!</p>
-          )}
-        </div>
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-        >
-          Logout
-        </button>
-      </div>
-
-      <div className="mb-6 p-4 bg-green-100 border border-green-400 rounded">
-        <p className="text-green-700">
-          ✅ You are successfully authenticated and can see this protected content!
-        </p>
-      </div>
-
-      <h2 className="text-2xl font-semibold mb-4">Quotations</h2>
-
-      {loading && <p>Loading quotations...</p>}
-      {error && <p className="text-red-600">{error}</p>}
-
-      {quotations.length > 0 && (
-        <ul className="space-y-4">
-          {quotations.map((q) => (
-            <li
-              key={q.id}
-              className="p-4 bg-white shadow rounded-lg flex justify-between items-center"
-            >
-              <span className="font-semibold">{q.quotation_number}</span>
-              <span>{q.title}</span>
-              <span className="font-bold">${q.total_amount}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {quotations.length === 0 && !loading && !error && <p>No quotations found.</p>}
-    </div>
-  );
-}
-
-export default function DashboardPage() {
   return (
     <RouteGuard requireAuth={true}>
-      <DashboardContent />
+      <div className="p-6 space-y-8">
+        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+
+        {/* Stats Cards */}
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {loadingStats
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-40 rounded-2xl bg-gray-200 animate-pulse"
+                />
+              ))
+            : stats && (
+                <>
+                  <DynamicCard title="Invoices" count={stats.invoices} type="invoice" />
+                  <DynamicCard title="Bills" count={stats.bills} type="bill" />
+                  <DynamicCard title="Purchase Orders" count={stats.pos} type="po" />
+                  <DynamicCard title="Quotations" count={stats.quotations} type="quotation" />
+                </>
+              )}
+        </div>
+
+        {/* Latest Quotations List */}
+        <div className="mt-8">
+          <h2 className="text-2xl font-semibold mb-4 text-gray-900">Latest Quotations</h2>
+
+          {loadingQuotations && (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-20 bg-gray-200 rounded-lg animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {!loadingQuotations && quotations.length === 0 && (
+            <p className="text-gray-600">No quotations found.</p>
+          )}
+
+          {!loadingQuotations && quotations.length > 0 && (
+            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {quotations.map((q) => (
+                <li
+                  key={q.id}
+                  className="p-4 bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow flex flex-col justify-between"
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-teal-600 font-bold text-lg">{q.quotation_number}</span>
+                    <span className="text-gray-500 text-sm">{q.title}</span>
+                  </div>
+                  <div className="text-right text-gray-900 font-semibold text-lg">
+                    ${q.total_amount.toLocaleString()}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </RouteGuard>
   );
 }
