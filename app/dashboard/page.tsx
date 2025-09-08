@@ -61,7 +61,6 @@ export default function DashboardPage() {
   return (
     <RouteGuard requireAuth={true}>
       <div className="p-6 space-y-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
 
         {/* Stats Cards */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
