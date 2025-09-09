@@ -155,7 +155,8 @@ export async function GET(req: Request) {
 
 
     // Load logo from public folder
-    const logoBytes = fs.readFileSync('./public/logo.png');
+    const res = await fetch('https://epfeexfehliszmipvbhe.supabase.co/storage/v1/object/sign/asset/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kYzc2MDhmZi1lM2M5LTQ5YWEtOGQ5Yy0yMGI0ZTJmNDhiMGIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldC9sb2dvLnBuZyIsImlhdCI6MTc1NzQyNDE4MCwiZXhwIjoxOTE1MTA0MTgwfQ.yeh9rf_DBREzwjhwJsPOJVz514wKqV9HuE9tZ4ePc2E')
+    const logoBytes = await res.arrayBuffer()
     const logoImage = await pdfDoc.embedPng(logoBytes);
 
     // Logo dimensions (adjust as needed)
