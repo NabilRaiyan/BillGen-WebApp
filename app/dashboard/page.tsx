@@ -16,6 +16,18 @@ interface Quotation {
   quotation_number: string;
   title: string;
   total_amount: number;
+  due_date: string;
+  status: string | null;
+  client_name: string;
+}
+
+interface PurchaseOrder {
+  id: string;
+  quotation_id: string;
+  po_number: string;
+  po_date: string;
+  total_amount: number;
+  client_name: string;
 }
 
 export default function DashboardPage() {
@@ -23,6 +35,8 @@ export default function DashboardPage() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingQuotations, setLoadingQuotations] = useState(true);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [loadingPurchaseOrders, setLoadingPurchaseOrders] = useState(true);
 
   // Fetch stats
   useEffect(() => {
@@ -41,11 +55,11 @@ export default function DashboardPage() {
     fetchStats();
   }, []);
 
-  // Fetch latest quotations (limit 5)
+  // Fetch latest quotations (limit 3)
   useEffect(() => {
     const fetchQuotations = async () => {
       try {
-        const res = await fetch('/api/project-quotation?limit=5');
+        const res = await fetch('/api/project-quotation?limit=3');
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to fetch quotations');
         setQuotations(data);
@@ -56,6 +70,24 @@ export default function DashboardPage() {
       }
     };
     fetchQuotations();
+  }, []);
+
+  // Fetch latest purchase orders
+  useEffect(() => {
+    const fetchPurchaseOrders = async () => {
+      try {
+        const res = await fetch('/api/purchase-order?limit=3'); // your API endpoint
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to fetch purchase orders');
+        setPurchaseOrders(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingPurchaseOrders(false);
+      }
+    };
+
+    fetchPurchaseOrders();
   }, []);
 
   return (
@@ -82,40 +114,155 @@ export default function DashboardPage() {
         </div>
 
         {/* Latest Quotations List */}
-        <div className="mt-8">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-900">Latest Quotations</h2>
+      <div className="mt-8">
+        <h2 className="text-2xl font-semibold mb-6 text-gray-900">Latest Quotations</h2>
 
-          {loadingQuotations && (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-20 bg-gray-200 rounded-lg animate-pulse" />
-              ))}
-            </div>
-          )}
+        {loadingQuotations && (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div
+                key={i}
+                className="h-28 bg-gray-200 rounded-2xl animate-pulse"
+              />
+            ))}
+          </div>
+        )}
 
-          {!loadingQuotations && quotations.length === 0 && (
-            <p className="text-gray-600">No quotations found.</p>
-          )}
+        {!loadingQuotations && quotations.length === 0 && (
+          <p className="text-gray-600">No quotations found.</p>
+        )}
 
-          {!loadingQuotations && quotations.length > 0 && (
-            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {quotations.map((q) => (
-                <li
-                  key={q.id}
-                  className="p-4 bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow flex flex-col justify-between"
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-teal-600 font-bold text-lg">{q.quotation_number}</span>
-                    <span className="text-gray-500 text-sm">{q.title}</span>
+        {!loadingQuotations && quotations.length > 0 && (
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {quotations.map((q) => (
+              <li
+                key={q.id}
+                className="p-4 bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow flex flex-col space-y-2"
+              >
+                {/* Quotation Number */}
+                <div>
+                  <span className="text-teal-600 font-bold text-base">Quotation Id:</span>{' '}
+                  <span className="text-gray-900 font-medium text-base">{q.quotation_number}</span>
+                </div>
+
+                {/* Title */}
+                <div>
+                  <span className="text-gray-500 font-semibold">Title:</span>{' '}
+                  <span className="text-teal-700">{q.title || 'N/A'}</span>
+                </div>
+
+                {/* Client */}
+                <div>
+                  <span className="text-gray-500 font-semibold">Client:</span>{' '}
+                  <span className="text-teal-700">{q.client_name || 'N/A'}</span>
+                </div>
+
+                {/* Due Date */}
+                <div>
+                  <span className="text-red-500 font-semibold">Due Date:</span>{' '}
+                  <span className="text-red-500">
+                    {q.due_date ? new Date(q.due_date).toLocaleDateString() : 'N/A'}
+                  </span>
+                </div>
+
+                {/* Status */}
+                {q.status && (
+                  <div>
+                    <span className="text-gray-500 font-semibold">Status:</span>{' '}
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        q.status.toLowerCase() === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : q.status.toLowerCase() === 'approved'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {q.status}
+                    </span>
                   </div>
-                  <div className="text-right text-gray-900 font-semibold text-lg">
-                    ${q.total_amount.toLocaleString()}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                )}
+
+                {/* Total Amount */}
+                <div>
+                  <span className="text-gray-500 font-semibold">Total:</span>{' '}
+                  <span className="text-gray-900 font-bold text-lg">
+                    ${Number(q.total_amount).toLocaleString()}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Latest Purchase Orders */}
+<div className="mt-8">
+  <h2 className="text-2xl font-semibold mb-6 text-gray-900">Latest Purchase Orders</h2>
+
+  {loadingPurchaseOrders && (
+    <div className="space-y-4">
+      {[...Array(3)].map((_, i) => (
+        <div
+          key={i}
+          className="h-28 bg-gray-200 rounded-2xl animate-pulse"
+        />
+      ))}
+    </div>
+  )}
+
+  {!loadingPurchaseOrders && purchaseOrders.length === 0 && (
+    <p className="text-gray-600">No purchase orders found.</p>
+  )}
+
+  {!loadingPurchaseOrders && purchaseOrders.length > 0 && (
+    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {purchaseOrders.map((po: PurchaseOrder) => (
+        <li
+          key={po.id}
+          className="p-5 bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow flex flex-col space-y-2"
+        >
+          {/* PO Number */}
+          <div>
+            <span className="text-teal-600 font-bold text-base">PO Number:</span>{' '}
+            <span className="text-gray-900 font-medium">{po.po_number}</span>
+          </div>
+
+          {/* Related Quotation */}
+          <div>
+            <span className="text-gray-500 font-semibold">Quotation ID:</span>{' '}
+            <span className="text-teal-700">{po.quotation_id}</span>
+          </div>
+
+          {/* Client Name */}
+          <div>
+            <span className="text-gray-500 font-semibold">Client:</span>{' '}
+            <span className="text-teal-700">{po.client_name || 'N/A'}</span>
+          </div>
+
+          {/* PO Date */}
+          <div>
+            <span className="text-red-500 font-semibold">PO Date:</span>{' '}
+            <span className="text-red-500">
+              {po.po_date ? new Date(po.po_date).toLocaleDateString() : 'N/A'}
+            </span>
+          </div>
+
+          {/* Total Amount */}
+          <div>
+            <span className="text-gray-500 font-semibold">Total:</span>{' '}
+            <span className="text-gray-900 font-bold text-lg">
+              ${Number(po.total_amount).toLocaleString()}
+            </span>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )}
+</div>
+
+
+
       </div>
     </RouteGuard>
   );

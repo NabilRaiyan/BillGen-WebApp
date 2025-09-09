@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     const limit = Number(url.searchParams.get('limit')) || 5; // default to 5
 
     const { data, error } = await supabase
-      .from('quotations')
+      .from('purchase_orders')
       .select(`
         *,
         clients (

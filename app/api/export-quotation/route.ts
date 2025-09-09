@@ -23,6 +23,7 @@ interface QuotationLineItem {
   line_item_total: number;
   unit_of_measurement?: string;
   items: Item | null;
+  
 }
 
 interface Quotation {
@@ -37,6 +38,7 @@ interface Quotation {
   warranty_period?: string;
   notes?: string;
   clients: Client | null;
+  discount: number | 0;
 }
 
 const supabaseAdmin = createClient(
@@ -220,7 +222,7 @@ page.drawText("Dear Sir,", { x: leftMargin, y, size: 12, font });
 y -= 25;
 
 // --- INTRO PARA ---
-const intro = "We would like to thank you for giving us the opportunity...";
+const intro = "We would like to thank you for giving us the opportunity to do business with your organization. In reference on your showing interest to the following goods we are very happy to inform you our best offer.";
 const introSize = 11;
 const maxWidth = pageWidth - leftMargin * 2;
 let line = "";
@@ -249,32 +251,186 @@ const rowHeight = 35;
 const colWidths = [35, 130, 55, 100, 75, 85];
 let xPos = leftMargin;
 
+// Helper function to trim text to fit in column
+function trimTextToFit(text: string, maxWidth: number, fontSize: number): string {
+  if (!text) return '';
+  
+  // Approximate character width (adjust based on your font)
+  const avgCharWidth = fontSize * 0.6;
+  const maxChars = Math.floor((maxWidth - 10) / avgCharWidth); // 10px padding
+  
+  if (text.length <= maxChars) return text;
+  
+  // For multi-line text (item name + description), handle specially
+  if (text.includes('\n')) {
+    const lines = text.split('\n');
+    const trimmedLines = lines.map(line => {
+      if (line.length > maxChars) {
+        return line.substring(0, maxChars - 3) + '...';
+      }
+      return line;
+    });
+    return trimmedLines.join('\n');
+  }
+  
+  return text.substring(0, maxChars - 3) + '...';
+}
+
+// Helper function to draw column separators
+function drawColumnSeparators(startY: number, height: number) {
+  let separatorX = leftMargin;
+  for (let i = 0; i < colWidths.length - 1; i++) {
+    separatorX += colWidths[i];
+    page.drawLine({
+      start: { x: separatorX, y: startY },
+      end: { x: separatorX, y: startY - height },
+      thickness: 0.5,
+      color: rgb(0.4, 0.4, 0.4)
+    });
+  }
+}
+
 // Header
 checkPageBreak(50);
-page.drawRectangle({ x: leftMargin, y: y - rowHeight, width: colWidths.reduce((a, b) => a + b, 0), height: rowHeight, color: rgb(0.95, 0.95, 0.95), borderColor: rgb(0, 0, 0), borderWidth: 1 });
+page.drawRectangle({ 
+  x: leftMargin, 
+  y: y - rowHeight, 
+  width: colWidths.reduce((a, b) => a + b, 0), 
+  height: rowHeight, 
+  color: rgb(0.95, 0.95, 0.95), 
+  borderColor: rgb(0, 0, 0), 
+  borderWidth: 1 
+});
+
+// Draw column separators for header
+drawColumnSeparators(y, rowHeight);
+
 const headers = ["Sl no", "Item Description", "Quantity", "Unit of Measurement", "Unit price (TK)", "Total price"];
-headers.forEach((header, i) => { page.drawText(header, { x: xPos + 2, y: y - 18, size: 10, font: boldFont }); xPos += colWidths[i]; });
+headers.forEach((header, i) => { 
+  page.drawText(header, { 
+    x: xPos + 2, 
+    y: y - 18, 
+    size: 10, 
+    font: boldFont 
+  }); 
+  xPos += colWidths[i]; 
+});
 y -= rowHeight;
 
 // Rows
 typedLineItems.forEach((item: QuotationLineItem, idx: number) => {
   checkPageBreak(50);
   const isEvenRow = idx % 2 === 0;
-  page.drawRectangle({ x: leftMargin, y: y - rowHeight, width: colWidths.reduce((a, b) => a + b, 0), height: rowHeight, color: isEvenRow ? rgb(1, 1, 1) : rgb(0.98, 0.98, 0.98), borderColor: rgb(0, 0, 0), borderWidth: 1 });
+  page.drawRectangle({ 
+    x: leftMargin, 
+    y: y - rowHeight, 
+    width: colWidths.reduce((a, b) => a + b, 0), 
+    height: rowHeight, 
+    color: isEvenRow ? rgb(1, 1, 1) : rgb(0.98, 0.98, 0.98), 
+    borderColor: rgb(0, 0, 0), 
+    borderWidth: 1 
+  });
+
+  // Draw column separators for this row
+  drawColumnSeparators(y, rowHeight);
 
   xPos = leftMargin;
-  const rowData = [`${idx + 1}.`, `${item.items?.item_name || 'Item'}\n${item.items?.item_description || ''}`, `${item.quantity}`, item.unit_of_measurement || 'Pcs', `${item.rate.toLocaleString()}/-`, `${item.line_item_total.toLocaleString()}/-`];
-  rowData.forEach((data, i) => { page.drawText(data, { x: xPos + 5, y: y - 18, size: 9, font }); xPos += colWidths[i]; });
+  const rawDescription = `${item.items?.item_name || 'Item'}\n${item.items?.item_description || ''}`;
+  const trimmedDescription = trimTextToFit(rawDescription, colWidths[1], 9);
+  
+  const rowData = [
+    `${idx + 1}.`, 
+    trimmedDescription, 
+    `${item.quantity}`, 
+    item.unit_of_measurement || 'Pcs', 
+    `${item.rate.toLocaleString()}/-`, 
+    `${item.line_item_total.toLocaleString()}/-`
+  ];
+  
+  rowData.forEach((data, i) => { 
+    // Trim other columns if needed (except description which is already trimmed)
+    const finalData = i === 1 ? data : trimTextToFit(data, colWidths[i], 9);
+    page.drawText(finalData, { 
+      x: xPos + 5, 
+      y: y - 18, 
+      size: 9, 
+      font 
+    }); 
+    xPos += colWidths[i]; 
+  });
   y -= rowHeight;
 });
 
 // Total
 checkPageBreak(60);
-page.drawRectangle({ x: leftMargin, y: y - rowHeight, width: colWidths.reduce((a, b) => a + b, 0), height: rowHeight, color: rgb(0.9, 0.9, 0.9), borderColor: rgb(0, 0, 0), borderWidth: 2 });
-const label = "Total amount including VAT & TAX - ";
-page.drawText(label, { x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + 10, y: y - 18, size: 11, font: boldFont });
-page.drawText(`${typedQuotation.total_amount.toLocaleString()}/-`, { x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + 10 + boldFont.widthOfTextAtSize(label, 11) + 10, y: y - 18, size: 12, font: boldFont, color: rgb(0, 0, 0.8) });
+page.drawRectangle({ 
+  x: leftMargin, 
+  y: y - rowHeight, 
+  width: colWidths.reduce((a, b) => a + b, 0), 
+  height: rowHeight, 
+  color: rgb(0.9, 0.9, 0.9), 
+  borderColor: rgb(0, 0, 0), 
+  borderWidth: 2 
+});
 
+// NO column separators for total row - removed for cleaner look
+
+const label = "Total amount including VAT & TAX - ";
+const discountLabel = "Discount amount -";
+
+// Draw total amount row
+page.drawText(label, { 
+  x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + 10, 
+  y: y - 18, 
+  size: 11, 
+  font: boldFont 
+});
+page.drawText(`${typedQuotation.total_amount.toLocaleString()}/-`, { 
+  x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + 10 + boldFont.widthOfTextAtSize(label, 11) + 10, 
+  y: y - 18, 
+  size: 12, 
+  font: boldFont, 
+  color: rgb(0, 0, 0.8) 
+});
+
+// Move to next row for discount
+y -= rowHeight;
+
+// Check if we need a new page for discount row
+checkPageBreak(60);
+
+// Draw discount row background
+page.drawRectangle({ 
+  x: leftMargin, 
+  y: y - rowHeight, 
+  width: colWidths.reduce((a, b) => a + b, 0), 
+  height: rowHeight, 
+  color: rgb(0.95, 0.9, 0.9), // Light red background for discount
+  borderColor: rgb(0, 0, 0), 
+  borderWidth: 1 
+});
+
+// NO column separators for discount row - removed for cleaner look
+
+// Draw discount amount row
+page.drawText(discountLabel, { 
+  x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + 10, 
+  y: y - 18, 
+  size: 11, 
+  font: boldFont,
+  color: rgb(0.6, 0, 0) 
+});
+
+page.drawText(`${typedQuotation.discount.toLocaleString()}%`, { 
+  x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + 10 + boldFont.widthOfTextAtSize(discountLabel, 11) + 10, 
+  y: y - 18, 
+  size: 12, 
+  font: boldFont, 
+  color: rgb(0.6, 0, 0) 
+});
+
+// Move y position for any subsequent content
+y -= rowHeight;
 y -= 50;
 
 // Amount in words
