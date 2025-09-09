@@ -119,412 +119,198 @@ export async function GET(req: Request) {
     const typedLineItems = lineItems as QuotationLineItem[];
 
     // Create PDF
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595, 842]); // A4
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+const pdfDoc = await PDFDocument.create();
+let page = pdfDoc.addPage([595, 842]); // A4
+const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+let y = 820; 
+const leftMargin = 40; 
+const rightMargin = 555;
+const pageWidth = 595;
+const pageHeight = 842;
+const bottomMargin = 60; // reserve space for footer/signature
 
-    
-    let y = 820; // Start slightly lower for better alignment
-    const leftMargin = 40; // Moved left as requested
-    const rightMargin = 555;
-    const pageWidth = 595;
+// Helper: Page break
+function checkPageBreak(requiredSpace = 40) {
+  if (y - requiredSpace < bottomMargin) {
+    page = pdfDoc.addPage([595, 842]);
+    y = 820;
+    drawHeader(); // repeat header on new page
+  }
+}
 
-    const title = "Quotation";
-    const titleSize = 12;
-    const titleWidth = boldFont.widthOfTextAtSize(title, titleSize);
-    const centerX = (pageWidth - titleWidth) / 2;
+// --- HEADER (Logo + Company Info) ---
+async function drawHeader() {
+  const res = await fetch('https://epfeexfehliszmipvbhe.supabase.co/storage/v1/object/sign/asset/logo.png?...');
+  const logoBytes = await res.arrayBuffer();
+  const logoImage = await pdfDoc.embedPng(logoBytes);
 
+  const logoWidth = 50, logoHeight = 50;
+  const logoScale = 0.2;
+  const logoDims = { width: logoImage.width * logoScale, height: logoImage.height * logoScale };
 
-    const intro = "We would like to thank you for giving us the opportunity to do business with your organization. In reference on your showing interest to the following goods we are very happy to inform you our best offer.";
-    const introSize = 11;
-    const maxWidth = pageWidth - leftMargin * 2;
-    const words = intro.split(" ");
-    let line = "";
+  // Watermark
+  page.drawImage(logoImage, {
+    x: rightMargin - logoDims.width - 10,
+    y: y - logoDims.height - 100,
+    width: logoDims.width,
+    height: logoDims.height,
+    opacity: 0.3,
+  });
 
-    
+  // Logo + Company Name
+  page.drawImage(logoImage, { x: leftMargin, y: y - logoHeight + 5, width: logoWidth, height: logoHeight });
+  page.drawText("Techmak Technology Ltd.", { x: leftMargin + logoWidth + 10, y, size: 18, font: boldFont, color: rgb(0, 0, 0.8) });
 
-    // Professional Header with enhanced styling
-    // Company name with larger, bold styling
-    // page.drawText("Techmak Technology", { 
-    //   x: leftMargin, y, size: 18, font: boldFont, color: rgb(0, 0, 0.8)
-    // });
+  y -= 20;
+  page.drawText("www.techmakai.com", { x: leftMargin + logoWidth + 10, y, size: 10, font, color: rgb(0, 0, 0.6) });
+  y -= 13;
+  page.drawText("info@techmakai.com", { x: leftMargin + logoWidth + 10, y, size: 10, font, color: rgb(0, 0, 0.6) });
+  y -= 11;
+  page.drawText("4th floor, House# 36/E, Road-02, Block- D", { x: leftMargin + logoWidth + 10, y, size: 10, font, color: rgb(0, 0, 0.6) });
+  y -= 10;
+  page.drawText("Bashundhara R/A, Dhaka-1229", { x: leftMargin + logoWidth + 10, y, size: 10, font, color: rgb(0, 0, 0.6) });
 
+  // Header line
+  page.drawLine({ start: { x: leftMargin, y: y - 8 }, end: { x: rightMargin, y: y - 8 }, thickness: 1, color: rgb(0.8, 0.8, 0.8) });
 
+  y -= 40;
+}
 
+await drawHeader();
 
-    // Load logo from public folder
-    const res = await fetch('https://epfeexfehliszmipvbhe.supabase.co/storage/v1/object/sign/asset/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kYzc2MDhmZi1lM2M5LTQ5YWEtOGQ5Yy0yMGI0ZTJmNDhiMGIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldC9sb2dvLnBuZyIsImlhdCI6MTc1NzQyNDE4MCwiZXhwIjoxOTE1MTA0MTgwfQ.yeh9rf_DBREzwjhwJsPOJVz514wKqV9HuE9tZ4ePc2E')
-    const logoBytes = await res.arrayBuffer()
-    const logoImage = await pdfDoc.embedPng(logoBytes);
+// --- REF & DATE ---
+const refY = 800;
+page.drawText(`REF: ${typedQuotation.quotation_number}`, { x: rightMargin - 180, y: refY, size: 10, font: boldFont });
+page.drawText(`Date: ${new Date(typedQuotation.issue_date).toLocaleDateString('en-GB')}`, { x: rightMargin - 180, y: refY - 15, size: 10, font });
 
-    // Logo dimensions (adjust as needed)
-    const logoWidth = 50;
-    const logoHeight = 50;
-    const pageHeight = 842; // A4
+// --- CLIENT INFO ---
+y -= 20;
+page.drawText("To,", { x: leftMargin, y, size: 12, font: boldFont });
+y -= 18;
+page.drawText("Authority", { x: leftMargin, y, size: 12, font });
+y -= 16;
+page.drawText(typedQuotation.clients?.name || "Client Name", { x: leftMargin, y, size: 12, font });
+y -= 16;
+if (typedQuotation.clients?.address) {
+  const addressLines = typedQuotation.clients.address.split('\n');
+  addressLines.forEach(line => { page.drawText(line, { x: leftMargin, y, size: 12, font }); y -= 16; });
+}
+if (typedQuotation.clients?.contact_person) {
+  y -= 8;
+  page.drawText(`Attention: ${typedQuotation.clients.contact_person}`, { x: leftMargin, y, size: 12, font, color: rgb(0, 0, 0.6) });
+  y -= 18;
+}
+y -= 10;
+page.drawText(`Quotation Number: ${typedQuotation.quotation_number}`, { x: leftMargin, y, size: 10, color: rgb(0, 0, 0.6), font });
+page.drawText(`Date: ${new Date(typedQuotation.issue_date).toLocaleDateString('en-GB')}`, { x: leftMargin + 200, y, size: 10, font });
 
+// --- QUOTATION TITLE ---
+y -= 30;
+const title = "Quotation";
+const titleSize = 12;
+const titleWidth = boldFont.widthOfTextAtSize(title, titleSize);
+const centerX = (pageWidth - titleWidth) / 2;
+page.drawText(title, { x: centerX, y, size: titleSize, font: boldFont });
+page.drawLine({ start: { x: centerX, y: y - 2 }, end: { x: centerX + titleWidth, y: y - 2 }, thickness: 0.5, color: rgb(0, 0, 0) });
 
-    const logoScale = 0.2; // scale down
-    const logoDims = {
-      width: logoImage.width * logoScale,
-      height: logoImage.height * logoScale
-    };
+y -= 30;
+page.drawText("Dear Sir,", { x: leftMargin, y, size: 12, font });
+y -= 25;
 
-    page.drawImage(logoImage, {
-  x: rightMargin - logoDims.width - 10, // 10 px padding from right
-  y: y - logoDims.height - 100, // adjust vertical alignment
-  width: logoDims.width,
-  height: logoDims.height,
-  opacity: 0.3, // very faint watermark
+// --- INTRO PARA ---
+const intro = "We would like to thank you for giving us the opportunity...";
+const introSize = 11;
+const maxWidth = pageWidth - leftMargin * 2;
+let line = "";
+intro.split(" ").forEach((word, i, arr) => {
+  const testLine = line + word + " ";
+  const testWidth = font.widthOfTextAtSize(testLine, introSize);
+  if (testWidth > maxWidth && line !== "") {
+    checkPageBreak(20);
+    page.drawText(line.trim(), { x: leftMargin, y, size: introSize, font });
+    y -= 16;
+    line = word + " ";
+  } else {
+    line = testLine;
+  }
+  if (i === arr.length - 1) {
+    checkPageBreak(20);
+    page.drawText(line.trim(), { x: leftMargin, y, size: introSize, font });
+    y -= 16;
+  }
 });
 
-    // Draw logo beside text
-    page.drawImage(logoImage, {
-      x: leftMargin,
-      y: y - logoHeight + 5, // align with text vertically
-      width: logoWidth,
-      height: logoHeight,
-    });
+y -= 10;
 
-    page.drawText("Techmak Technology Ltd.", { 
-      x: leftMargin + logoWidth + 10, // offset right of logo
-      y, 
-      size: 18, 
-      font: boldFont, 
-      color: rgb(0, 0, 0.8)
-    });
+// --- TABLE ---
+const rowHeight = 35;
+const colWidths = [35, 130, 55, 100, 75, 85];
+let xPos = leftMargin;
 
-    
-    y -= 20;
-    page.drawText("www.techmakai.com", { 
-      x: leftMargin + logoWidth + 10, y, size: 10, font, color: rgb(0, 0, 0.6)
-    });
-    
-    y -= 13;
-    page.drawText("info@techmakai.com", { 
-      x: leftMargin + logoWidth + 10, y, size: 10, font, color: rgb(0, 0, 0.6)
-    });
-    
-    y -= 11;
-    page.drawText("4th floor, House# 36/E, Road-02, Block- D", { 
-      x: leftMargin + logoWidth + 10, y, size: 10, font, color: rgb(0, 0, 0.6)
-    });
-    
-    y -= 10;
-    page.drawText("Bashundhara R/A, Dhaka-1229", { 
-      x: leftMargin + logoWidth + 10, y, size: 10, font, color: rgb(0, 0, 0.6)
-    });
+// Header
+checkPageBreak(50);
+page.drawRectangle({ x: leftMargin, y: y - rowHeight, width: colWidths.reduce((a, b) => a + b, 0), height: rowHeight, color: rgb(0.95, 0.95, 0.95), borderColor: rgb(0, 0, 0), borderWidth: 1 });
+const headers = ["Sl no", "Item Description", "Quantity", "Unit of Measurement", "Unit price (TK)", "Total price"];
+headers.forEach((header, i) => { page.drawText(header, { x: xPos + 2, y: y - 18, size: 10, font: boldFont }); xPos += colWidths[i]; });
+y -= rowHeight;
 
-    // Draw a subtle header line
-    page.drawLine({
-      start: { x: leftMargin, y: y - 8 },
-      end: { x: rightMargin, y: y - 8 },
-      thickness: 1,
-      color: rgb(0.8, 0.8, 0.8),
-    });
+// Rows
+typedLineItems.forEach((item: QuotationLineItem, idx: number) => {
+  checkPageBreak(50);
+  const isEvenRow = idx % 2 === 0;
+  page.drawRectangle({ x: leftMargin, y: y - rowHeight, width: colWidths.reduce((a, b) => a + b, 0), height: rowHeight, color: isEvenRow ? rgb(1, 1, 1) : rgb(0.98, 0.98, 0.98), borderColor: rgb(0, 0, 0), borderWidth: 1 });
 
-    // Reference and Date (top right) - aligned better
-    const refY = 800;
-    page.drawText(`REF: ${typedQuotation.quotation_number}`, { 
-      x: rightMargin - 180, y: refY, size: 10, font: boldFont
-    });
-    
-    page.drawText(`Date: ${new Date(typedQuotation.issue_date).toLocaleDateString('en-GB')}`, { 
-      x: rightMargin - 180, y: refY - 15, size: 10, font 
-    });
-
-    y -= 50;
-
-    // Client Information with better alignment
-    page.drawText("To,", { x: leftMargin, y, size: 12, font: boldFont });
-    y -= 18;
-    page.drawText("Authority", { x: leftMargin, y, size: 12, font });
-    y -= 16;
-    page.drawText(typedQuotation.clients?.name || "Client Name", { 
-      x: leftMargin, y, size: 12, font 
-    });
-    y -= 16;
-    if (typedQuotation.clients?.address) {
-      const addressLines = typedQuotation.clients.address.split('\n');
-      addressLines.forEach(line => {
-        page.drawText(line, { x: leftMargin, y, size: 12, font });
-        y -= 16;
-      });
-    }
-
-    // Attention line with better spacing
-    if (typedQuotation.clients?.contact_person) {
-      y -= 8;
-      page.drawText(`Attention: ${typedQuotation.clients.contact_person}`, { 
-        x: leftMargin, y, size: 12, font, color: rgb(0, 0, 0.6)
-      });
-      y -= 18;
-    }
-
-    // Changed "RFQ Number" to "Quotation Number" as requested
-    y -= 10;
-    page.drawText(`Quotation Number: ${typedQuotation.quotation_number}`, { 
-      x: leftMargin, y, size: 10, color: rgb(0, 0, 0.6), font
-    });
-    page.drawText(`Date: ${new Date(typedQuotation.issue_date).toLocaleDateString('en-GB')}`, { 
-      x: leftMargin + 200, y, size: 10, font
-    });
-    
-    y -= 30;
-
-    // Quotation Title with enhanced styling
-    // page.drawText("Quotation", { 
-    //   x: leftMargin, y, size: 12, font: boldFont, color: rgb(0, 0, 0)
-    // });
-    page.drawText(title, { 
-      x: centerX, 
-      y, 
-      size: titleSize, 
-      font: boldFont, 
-      color: rgb(0, 0, 0), 
-    });
-
-    // underline
-    page.drawLine({
-      start: { x: centerX, y: y - 2 },
-      end: { x: centerX + titleWidth, y: y - 2 },
-      thickness: 0.5,
-      color: rgb(0, 0, 0),
-    });
-    
-    y -= 30;
-
-    // Dear Sir
-    page.drawText("Dear Sir,", { x: leftMargin, y, size: 12, font });
-    y -= 25;
-
-    // Introduction paragraph with better line spacing
-    // const intro = "We would like to thank you for giving us the opportunity to do business with your organization. In reference on your showing interest to the following goods we are very happy to inform you our best offer.";
-    // const introLines = intro.match(/.{1,85}(\s|$)/g) || [intro];
-    // introLines.forEach(line => {
-    //   page.drawText(line.trim(), { x: leftMargin, y, size: 11, font });
-    //   y -= 16;
-    // });
-
-    words.forEach((word, i) => {
-      const testLine = line + word + " ";
-      const testWidth = font.widthOfTextAtSize(testLine, introSize);
-      if (testWidth > maxWidth && line !== "") {
-        page.drawText(line.trim(), { x: leftMargin, y, size: introSize, font });
-        y -= 16;
-        line = word + " ";
-      } else {
-        line = testLine;
-      }
-      if (i === words.length - 1) {
-        page.drawText(line.trim(), { x: leftMargin, y, size: introSize, font });
-        y -= 16;
-      }
-    });
-
-    y -= 10;
-
-    // Enhanced Table with better alignment and styling
-    // const tableTop = y;
-    const rowHeight = 35; // Increased row height for better readability
-    const colWidths = [35, 130, 55, 100, 75, 85]; // Adjusted column widths
-    let xPos = leftMargin;
-
-    // Table header background
-    page.drawRectangle({
-      x: leftMargin,
-      y: y - rowHeight,
-      width: colWidths.reduce((a, b) => a + b, 0),
-      height: rowHeight,
-      color: rgb(0.95, 0.95, 0.95),
-      borderColor: rgb(0, 0, 0),
-      borderWidth: 1,
-    });
-
-    // Table headers with better alignment
-    const headers = ["Sl no", "Item Description", "Quantity", "Unit of Measurement", "Unit price (TK)", "Total price"];
-    headers.forEach((header, index) => {
-      page.drawText(header, { 
-        x: xPos + 2, 
-        y: y - 18, 
-        size: 10, 
-        font: boldFont 
-      });
-      
-      // Draw vertical lines
-      if (index < headers.length - 1) {
-        page.drawLine({
-          start: { x: xPos + colWidths[index], y: y },
-          end: { x: xPos + colWidths[index], y: y - rowHeight },
-          thickness: 1,
-        });
-      }
-      
-      xPos += colWidths[index];
-    });
-
-    y -= rowHeight;
-
-    // Table rows with better styling
-    if (typedLineItems && typedLineItems.length > 0) {
-      typedLineItems.forEach((item: QuotationLineItem, idx: number) => {
-        // Alternate row colors for better readability
-        const isEvenRow = idx % 2 === 0;
-        page.drawRectangle({
-          x: leftMargin,
-          y: y - rowHeight,
-          width: colWidths.reduce((a, b) => a + b, 0),
-          height: rowHeight,
-          color: isEvenRow ? rgb(1, 1, 1) : rgb(0.98, 0.98, 0.98),
-          borderColor: rgb(0, 0, 0),
-          borderWidth: 1,
-        });
-
-        xPos = leftMargin;
-        const rowData = [
-          `${idx + 1}.`,
-          `${item.items?.item_name || 'Item'}\n${item.items?.item_description || ''}`,
-          `${item.quantity}`,
-          item.unit_of_measurement || 'Pcs',
-          `${item.rate.toLocaleString()}/-`,
-          `${item.line_item_total.toLocaleString()}/-`
-        ];
-
-        rowData.forEach((data, index) => {
-          const lines = data.split('\n');
-          lines.forEach((line, lineIdx) => {
-            const textY = y - 15 - (lineIdx * 12);
-            // Center align numbers
-            let textX = xPos + 5;
-            if (index === 0 || index === 2) { // Sl no and Quantity
-              textX = xPos + (colWidths[index] / 2) - (line.length * 2.5);
-            } else if (index >= 4) { // Price columns - right align
-              textX = xPos + colWidths[index] - 10 - (line.length * 5);
-            }
-            
-            page.drawText(line, { 
-              x: textX, 
-              y: textY, 
-              size: 9, 
-              font 
-            });
-          });
-
-          // Draw vertical lines
-          if (index < rowData.length - 1) {
-            page.drawLine({
-              start: { x: xPos + colWidths[index], y: y },
-              end: { x: xPos + colWidths[index], y: y - rowHeight },
-              thickness: 1,
-            });
-          }
-          
-          xPos += colWidths[index];
-        });
-
-        y -= rowHeight;
-      });
-    }
-
-    // Enhanced Total row
-    page.drawRectangle({
-      x: leftMargin,
-      y: y - rowHeight,
-      width: colWidths.reduce((a, b) => a + b, 0),
-      height: rowHeight,
-      color: rgb(0.9, 0.9, 0.9),
-      borderColor: rgb(0, 0, 0),
-      borderWidth: 2,
-    });
-
-    // page.drawText("Total amount including VAT & TAX - ", { 
-    //   x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + 10, 
-    //   y: y - 18, 
-    //   size: 11, 
-    //   font: boldFont 
-    // });
-
-    // page.drawText(`${typedQuotation.total_amount.toLocaleString()}/-`, { 
-    //   x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 10, 
-    //   y: y - 18, 
-    //   size: 12, 
-    //   font: boldFont,
-    //   color: rgb(0, 0, 0.8)
-    // });
-
-    const label = "Total amount including VAT & TAX - ";
-    page.drawText(label, { 
-      x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + 10, 
-      y: y - 18, 
-      size: 11, font: boldFont 
-    });
-
-    page.drawText(`${typedQuotation.total_amount.toLocaleString()}/-`, { 
-      x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + 10 
-        + boldFont.widthOfTextAtSize(label, 11) + 10, 
-      y: y - 18, 
-      size: 12, font: boldFont, color: rgb(0, 0, 0.8) 
-    });
-
-
-    y -= 50;
-
-    // // Amount in words with better styling
-    // page.drawText("IN WORD: " + numberToWords(typedQuotation.total_amount), { 
-    //   x: leftMargin, y, size: 11, font: boldFont, color: rgb(0, 0, 0.8)
-    // });
-
-    page.drawText("IN WORD: " + numberToWords(typedQuotation.total_amount), { 
-      x: leftMargin, y, size: 11, font: boldFont, color: rgb(0, 0, 0.8)
-    });
-
-
-    y -= 25;
-
-    // Notice/Warranty
-page.drawText(`NOTICE: ${typedQuotation.warranty_period || '01 Years Warranty'}`, { 
-  x: leftMargin, y, size: 11, font: boldFont, color: rgb(0.8, 0, 0)
+  xPos = leftMargin;
+  const rowData = [`${idx + 1}.`, `${item.items?.item_name || 'Item'}\n${item.items?.item_description || ''}`, `${item.quantity}`, item.unit_of_measurement || 'Pcs', `${item.rate.toLocaleString()}/-`, `${item.line_item_total.toLocaleString()}/-`];
+  rowData.forEach((data, i) => { page.drawText(data, { x: xPos + 5, y: y - 18, size: 9, font }); xPos += colWidths[i]; });
+  y -= rowHeight;
 });
+
+// Total
+checkPageBreak(60);
+page.drawRectangle({ x: leftMargin, y: y - rowHeight, width: colWidths.reduce((a, b) => a + b, 0), height: rowHeight, color: rgb(0.9, 0.9, 0.9), borderColor: rgb(0, 0, 0), borderWidth: 2 });
+const label = "Total amount including VAT & TAX - ";
+page.drawText(label, { x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + 10, y: y - 18, size: 11, font: boldFont });
+page.drawText(`${typedQuotation.total_amount.toLocaleString()}/-`, { x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + 10 + boldFont.widthOfTextAtSize(label, 11) + 10, y: y - 18, size: 12, font: boldFont, color: rgb(0, 0, 0.8) });
+
+y -= 50;
+
+// Amount in words
+checkPageBreak(30);
+page.drawText("IN WORD: " + numberToWords(typedQuotation.total_amount), { x: leftMargin, y, size: 11, font: boldFont, color: rgb(0, 0, 0.8) });
+
+y -= 25;
+
+// Notice / Warranty
+checkPageBreak(40);
+page.drawText(`NOTICE: ${typedQuotation.warranty_period || '01 Years Warranty'}`, { x: leftMargin, y, size: 11, font: boldFont, color: rgb(0.8, 0, 0) });
 
 y -= 20;
-
-// Terms & Conditions
-page.drawText("Terms & Conditions:", { 
-  x: leftMargin, y, size: 12, font: boldFont, color: rgb(0, 0, 0.8)
-});
+page.drawText("Terms & Conditions:", { x: leftMargin, y, size: 12, font: boldFont, color: rgb(0, 0, 0.8) });
 
 y -= 18;
-
 const terms = [
   "1. Work Order: Work order should be issued by the buyer.",
-  `2. Validity: Offer Valid up to ${typedQuotation.validity_days || 30} days from the date of submission.`,
-  `3. Delivery Time: ${typedQuotation.delivery_time || 'lead time is within 30-35 days from the date of getting work order'}.`,
+  `2. Validity: Offer Valid up to ${typedQuotation.validity_days || 30} days.`,
+  `3. Delivery Time: ${typedQuotation.delivery_time || '30-35 days from work order'}.`,
   `4. Payment Clearance: ${typedQuotation.payment_terms || 'As per buyer\'s rules'}.`
 ];
-
-terms.forEach(term => {
-  page.drawText(term, { x: leftMargin, y, size: 10, font });
-  y -= 14; // tighter spacing
-});
+terms.forEach(term => { checkPageBreak(20); page.drawText(term, { x: leftMargin, y, size: 10, font }); y -= 14; });
 
 y -= 18;
-
-// Closing
-page.drawText("In acceptance of the following terms and conditions with the price we are ready to provide the above", { 
-  x: leftMargin, y, size: 11, font, color: rgb(0, 0, 0.6)
-});
+page.drawText("In acceptance of the following terms and conditions with the price we are ready to provide the above", { x: leftMargin, y, size: 11, font, color: rgb(0, 0, 0.6) });
 y -= 14;
-page.drawText("mentioned services.", { 
-  x: leftMargin, y, size: 11, font, color: rgb(0, 0, 0.6)
-});
+page.drawText("mentioned services.", { x: leftMargin, y, size: 11, font, color: rgb(0, 0, 0.6) });
 
 y -= 20;
 page.drawText("Thank you", { x: leftMargin, y, size: 12, font });
 
 y -= 25;
 
-// Signature section (tight spacing)
+// --- SIGNATURE ---
+checkPageBreak(80);
 page.drawText("A.Azam Tusher", { x: leftMargin, y, size: 12, font: boldFont });
 y -= 14;
 page.drawText("CEO", { x: leftMargin, y, size: 11, font });
