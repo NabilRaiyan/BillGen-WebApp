@@ -23,7 +23,7 @@ interface Quotation {
 
 interface PurchaseOrder {
   id: string;
-  quotation_id: string;
+  quotation_number: string;
   po_number: string;
   po_date: string;
   total_amount: number;
@@ -230,8 +230,8 @@ export default function DashboardPage() {
 
           {/* Related Quotation */}
           <div>
-            <span className="text-gray-500 font-semibold">Quotation ID:</span>{' '}
-            <span className="text-teal-700">{po.quotation_id}</span>
+            <span className="text-gray-500 font-semibold">Quotation Number:</span>{' '}
+            <span className="text-teal-700">{po.quotation_number}</span>
           </div>
 
           {/* Client Name */}

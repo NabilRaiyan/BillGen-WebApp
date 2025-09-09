@@ -18,8 +18,11 @@ export async function GET(req: Request) {
           id,
           name,
           email
+        ),
+        quotations (
+          quotation_number
         )
-      `) // join clients table
+      `)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -30,10 +33,11 @@ export async function GET(req: Request) {
       });
     }
 
-    // Format the data so frontend can directly use client_name
+    // Flatten client name and quotation_number for frontend
     const formattedData = (data || []).map(q => ({
       ...q,
-      client_name: q.clients?.name || 'N/A'
+      client_name: q.clients?.name || 'N/A',
+      quotation_number: q.quotations?.quotation_number || 'N/A'
     }));
 
     return new Response(JSON.stringify(formattedData), {
