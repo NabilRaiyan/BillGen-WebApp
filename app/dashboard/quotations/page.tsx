@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, X, Trash2, FileText } from 'lucide-react';
 import ScrollableList from '@/app/components/ui/ScrollableList';
+import Swal from 'sweetalert2'
 
 interface Client {
   id: string;
@@ -239,8 +240,14 @@ const QuotationPage = () => {
         return;
       }
 
-      alert('Quotation created successfully!');
-      // Reset form, close modal, refresh list
+
+      // Instead of alert
+      Swal.fire({
+        icon: 'success',
+        title: 'Quotation created successfully!',
+        showConfirmButton: false,
+        timer: 2000 // auto close after 2 seconds
+      });      // Reset form, close modal, refresh list
       setFormData({
         client_id: '',
         title: '',

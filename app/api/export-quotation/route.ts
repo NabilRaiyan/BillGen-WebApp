@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-
+import fs from 'fs';
 // Define types for better type safety
 interface Client {
   name: string;
@@ -46,22 +46,48 @@ const supabaseAdmin = createClient(
 
 // Helper function to convert number to words (simplified for Bangladeshi context)
 function numberToWords(amount: number): string {
-  // This is a simplified version - you might want to use a proper library
-  const crore = Math.floor(amount / 10000000);
-  const lac = Math.floor((amount % 10000000) / 100000);
-  const thousand = Math.floor((amount % 100000) / 1000);
-  const hundred = Math.floor((amount % 1000) / 100);
-  const remaining = amount % 100;
+  if (!Number.isFinite(amount) || amount === 0) return "Zero Taka Only.";
 
-  let words = "";
-  if (crore > 0) words += `${crore} Crore `;
-  if (lac > 0) words += `${lac} Lac `;
-  if (thousand > 0) words += `${thousand} Thousand `;
-  if (hundred > 0) words += `${hundred} Hundred `;
-  if (remaining > 0) words += `${remaining} `;
-  
-  return words.trim() + " Taka Only.";
+  const ones = ["Zero","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"];
+  const tens = ["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
+
+  const twoDigits = (num: number) => {
+    if (num < 20) return ones[num];
+    const t = Math.floor(num / 10);
+    const r = num % 10;
+    return tens[t] + (r ? " " + ones[r] : "");
+  };
+
+  const threeDigits = (num: number) => {
+    if (num === 0) return "";
+    if (num < 100) return twoDigits(num);
+    const h = Math.floor(num / 100);
+    const rem = num % 100;
+    return ones[h] + " Hundred" + (rem ? " " + twoDigits(rem) : "");
+  };
+
+  let n = Math.floor(Math.abs(amount));
+  const parts: string[] = [];
+
+  const crore = Math.floor(n / 10000000);
+  n %= 10000000;
+  if (crore) parts.push(`${threeDigits(crore)} Crore`);
+
+  const lac = Math.floor(n / 100000);
+  n %= 100000;
+  if (lac) parts.push(`${threeDigits(lac)} Lac`);
+
+  const thousand = Math.floor(n / 1000);
+  n %= 1000;
+  if (thousand) parts.push(`${threeDigits(thousand)} Thousand`);
+
+  if (n) parts.push(threeDigits(n));
+
+  return parts.join(" ").replace(/\s+/g, " ").trim() + " Taka Only.";
 }
+
+
+
 
 export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("id");
@@ -97,42 +123,102 @@ export async function GET(req: Request) {
     const page = pdfDoc.addPage([595, 842]); // A4
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+
     
-    let y = 800; // Start slightly lower for better alignment
+    let y = 820; // Start slightly lower for better alignment
     const leftMargin = 40; // Moved left as requested
     const rightMargin = 555;
     const pageWidth = 595;
 
+    const title = "Quotation";
+    const titleSize = 12;
+    const titleWidth = boldFont.widthOfTextAtSize(title, titleSize);
+    const centerX = (pageWidth - titleWidth) / 2;
+
+
+    const intro = "We would like to thank you for giving us the opportunity to do business with your organization. In reference on your showing interest to the following goods we are very happy to inform you our best offer.";
+    const introSize = 11;
+    const maxWidth = pageWidth - leftMargin * 2;
+    const words = intro.split(" ");
+    let line = "";
+
+    
+
     // Professional Header with enhanced styling
     // Company name with larger, bold styling
-    page.drawText("Techmak Technology", { 
-      x: leftMargin, y, size: 18, font: boldFont, color: rgb(0, 0, 0.8)
+    // page.drawText("Techmak Technology", { 
+    //   x: leftMargin, y, size: 18, font: boldFont, color: rgb(0, 0, 0.8)
+    // });
+
+
+
+
+    // Load logo from public folder
+    const logoBytes = fs.readFileSync('./public/logo.png');
+    const logoImage = await pdfDoc.embedPng(logoBytes);
+
+    // Logo dimensions (adjust as needed)
+    const logoWidth = 50;
+    const logoHeight = 50;
+    const pageHeight = 842; // A4
+
+
+    const logoScale = 0.2; // scale down
+    const logoDims = {
+      width: logoImage.width * logoScale,
+      height: logoImage.height * logoScale
+    };
+
+    page.drawImage(logoImage, {
+  x: rightMargin - logoDims.width - 10, // 10 px padding from right
+  y: y - logoDims.height - 100, // adjust vertical alignment
+  width: logoDims.width,
+  height: logoDims.height,
+  opacity: 0.3, // very faint watermark
+});
+
+    // Draw logo beside text
+    page.drawImage(logoImage, {
+      x: leftMargin,
+      y: y - logoHeight + 5, // align with text vertically
+      width: logoWidth,
+      height: logoHeight,
     });
+
+    page.drawText("Techmak Technology Ltd.", { 
+      x: leftMargin + logoWidth + 10, // offset right of logo
+      y, 
+      size: 18, 
+      font: boldFont, 
+      color: rgb(0, 0, 0.8)
+    });
+
     
     y -= 20;
-    page.drawText("www.techmakbd.com", { 
-      x: leftMargin, y, size: 10, font, color: rgb(0, 0, 0.6)
+    page.drawText("www.techmakai.com", { 
+      x: leftMargin + logoWidth + 10, y, size: 10, font, color: rgb(0, 0, 0.6)
     });
     
-    y -= 12;
-    page.drawText("info@techmakbd.com", { 
-      x: leftMargin, y, size: 10, font, color: rgb(0, 0, 0.6)
+    y -= 13;
+    page.drawText("info@techmakai.com", { 
+      x: leftMargin + logoWidth + 10, y, size: 10, font, color: rgb(0, 0, 0.6)
     });
     
-    y -= 12;
+    y -= 11;
     page.drawText("4th floor, House# 36/E, Road-02, Block- D", { 
-      x: leftMargin, y, size: 10, font, color: rgb(0, 0, 0.6)
+      x: leftMargin + logoWidth + 10, y, size: 10, font, color: rgb(0, 0, 0.6)
     });
     
-    y -= 12;
+    y -= 10;
     page.drawText("Bashundhara R/A, Dhaka-1229", { 
-      x: leftMargin, y, size: 10, font, color: rgb(0, 0, 0.6)
+      x: leftMargin + logoWidth + 10, y, size: 10, font, color: rgb(0, 0, 0.6)
     });
 
     // Draw a subtle header line
     page.drawLine({
-      start: { x: leftMargin, y: y - 10 },
-      end: { x: rightMargin, y: y - 10 },
+      start: { x: leftMargin, y: y - 8 },
+      end: { x: rightMargin, y: y - 8 },
       thickness: 1,
       color: rgb(0.8, 0.8, 0.8),
     });
@@ -170,25 +256,40 @@ export async function GET(req: Request) {
     if (typedQuotation.clients?.contact_person) {
       y -= 8;
       page.drawText(`Attention: ${typedQuotation.clients.contact_person}`, { 
-        x: leftMargin, y, size: 12, font 
+        x: leftMargin, y, size: 12, font, color: rgb(0, 0, 0.6)
       });
       y -= 18;
     }
 
     // Changed "RFQ Number" to "Quotation Number" as requested
-    y -= 15;
+    y -= 10;
     page.drawText(`Quotation Number: ${typedQuotation.quotation_number}`, { 
-      x: leftMargin, y, size: 10, font: boldFont 
+      x: leftMargin, y, size: 10, color: rgb(0, 0, 0.6), font
     });
     page.drawText(`Date: ${new Date(typedQuotation.issue_date).toLocaleDateString('en-GB')}`, { 
-      x: leftMargin + 200, y, size: 10, font: boldFont 
+      x: leftMargin + 200, y, size: 10, font
     });
     
-    y -= 35;
+    y -= 30;
 
     // Quotation Title with enhanced styling
-    page.drawText("Quotation", { 
-      x: leftMargin, y, size: 12, font: boldFont, color: rgb(0, 0, 0)
+    // page.drawText("Quotation", { 
+    //   x: leftMargin, y, size: 12, font: boldFont, color: rgb(0, 0, 0)
+    // });
+    page.drawText(title, { 
+      x: centerX, 
+      y, 
+      size: titleSize, 
+      font: boldFont, 
+      color: rgb(0, 0, 0), 
+    });
+
+    // underline
+    page.drawLine({
+      start: { x: centerX, y: y - 2 },
+      end: { x: centerX + titleWidth, y: y - 2 },
+      thickness: 0.5,
+      color: rgb(0, 0, 0),
     });
     
     y -= 30;
@@ -198,17 +299,33 @@ export async function GET(req: Request) {
     y -= 25;
 
     // Introduction paragraph with better line spacing
-    const intro = "We would like to thank you for giving us the opportunity to do business with your organization. In reference on your showing interest to the following goods we are very happy to inform you our best offer.";
-    const introLines = intro.match(/.{1,85}(\s|$)/g) || [intro];
-    introLines.forEach(line => {
-      page.drawText(line.trim(), { x: leftMargin, y, size: 11, font });
-      y -= 16;
+    // const intro = "We would like to thank you for giving us the opportunity to do business with your organization. In reference on your showing interest to the following goods we are very happy to inform you our best offer.";
+    // const introLines = intro.match(/.{1,85}(\s|$)/g) || [intro];
+    // introLines.forEach(line => {
+    //   page.drawText(line.trim(), { x: leftMargin, y, size: 11, font });
+    //   y -= 16;
+    // });
+
+    words.forEach((word, i) => {
+      const testLine = line + word + " ";
+      const testWidth = font.widthOfTextAtSize(testLine, introSize);
+      if (testWidth > maxWidth && line !== "") {
+        page.drawText(line.trim(), { x: leftMargin, y, size: introSize, font });
+        y -= 16;
+        line = word + " ";
+      } else {
+        line = testLine;
+      }
+      if (i === words.length - 1) {
+        page.drawText(line.trim(), { x: leftMargin, y, size: introSize, font });
+        y -= 16;
+      }
     });
 
-    y -= 25;
+    y -= 10;
 
     // Enhanced Table with better alignment and styling
-    const tableTop = y;
+    // const tableTop = y;
     const rowHeight = 35; // Increased row height for better readability
     const colWidths = [35, 130, 55, 100, 75, 85]; // Adjusted column widths
     let xPos = leftMargin;
@@ -320,139 +437,160 @@ export async function GET(req: Request) {
       borderWidth: 2,
     });
 
-    page.drawText("Total amount including VAT & TAX -", { 
+    // page.drawText("Total amount including VAT & TAX - ", { 
+    //   x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + 10, 
+    //   y: y - 18, 
+    //   size: 11, 
+    //   font: boldFont 
+    // });
+
+    // page.drawText(`${typedQuotation.total_amount.toLocaleString()}/-`, { 
+    //   x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 10, 
+    //   y: y - 18, 
+    //   size: 12, 
+    //   font: boldFont,
+    //   color: rgb(0, 0, 0.8)
+    // });
+
+    const label = "Total amount including VAT & TAX - ";
+    page.drawText(label, { 
       x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + 10, 
       y: y - 18, 
-      size: 11, 
-      font: boldFont 
+      size: 11, font: boldFont 
     });
 
     page.drawText(`${typedQuotation.total_amount.toLocaleString()}/-`, { 
-      x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 10, 
+      x: leftMargin + colWidths[0] + colWidths[1] + colWidths[2] + 10 
+        + boldFont.widthOfTextAtSize(label, 11) + 10, 
       y: y - 18, 
-      size: 12, 
-      font: boldFont,
-      color: rgb(0, 0, 0.8)
+      size: 12, font: boldFont, color: rgb(0, 0, 0.8) 
     });
 
-    y -= 45;
 
-    // Amount in words with better styling
+    y -= 50;
+
+    // // Amount in words with better styling
+    // page.drawText("IN WORD: " + numberToWords(typedQuotation.total_amount), { 
+    //   x: leftMargin, y, size: 11, font: boldFont, color: rgb(0, 0, 0.8)
+    // });
+
     page.drawText("IN WORD: " + numberToWords(typedQuotation.total_amount), { 
       x: leftMargin, y, size: 11, font: boldFont, color: rgb(0, 0, 0.8)
     });
 
-    y -= 30;
 
-    // Notice/Warranty with enhanced styling
-    page.drawText(`NOTICE: ${typedQuotation.warranty_period || '01 Years Warranty'}`, { 
-      x: leftMargin, y, size: 11, font: boldFont, color: rgb(0.8, 0, 0)
-    });
-
-    y -= 35;
-
-    // Terms & Conditions with better spacing
-    page.drawText("Terms & Conditions:", { 
-      x: leftMargin, y, size: 12, font: boldFont, color: rgb(0, 0, 0.8)
-    });
-    
     y -= 25;
+
+    // Notice/Warranty
+page.drawText(`NOTICE: ${typedQuotation.warranty_period || '01 Years Warranty'}`, { 
+  x: leftMargin, y, size: 11, font: boldFont, color: rgb(0.8, 0, 0)
+});
+
+y -= 20;
+
+// Terms & Conditions
+page.drawText("Terms & Conditions:", { 
+  x: leftMargin, y, size: 12, font: boldFont, color: rgb(0, 0, 0.8)
+});
+
+y -= 18;
+
+const terms = [
+  "1. Work Order: Work order should be issued by the buyer.",
+  `2. Validity: Offer Valid up to ${typedQuotation.validity_days || 30} days from the date of submission.`,
+  `3. Delivery Time: ${typedQuotation.delivery_time || 'lead time is within 30-35 days from the date of getting work order'}.`,
+  `4. Payment Clearance: ${typedQuotation.payment_terms || 'As per buyer\'s rules'}.`
+];
+
+terms.forEach(term => {
+  page.drawText(term, { x: leftMargin, y, size: 10, font });
+  y -= 14; // tighter spacing
+});
+
+y -= 18;
+
+// Closing
+page.drawText("In acceptance of the following terms and conditions with the price we are ready to provide the above", { 
+  x: leftMargin, y, size: 11, font, color: rgb(0, 0, 0.6)
+});
+y -= 14;
+page.drawText("mentioned services.", { 
+  x: leftMargin, y, size: 11, font, color: rgb(0, 0, 0.6)
+});
+
+y -= 20;
+page.drawText("Thank you", { x: leftMargin, y, size: 12, font });
+
+y -= 25;
+
+// Signature section (tight spacing)
+page.drawText("A.Azam Tusher", { x: leftMargin, y, size: 12, font: boldFont });
+y -= 14;
+page.drawText("CEO", { x: leftMargin, y, size: 11, font });
+y -= 14;
+page.drawText("Techmak Technology", { x: leftMargin, y, size: 11, font: boldFont });
+y -= 14;
+page.drawText("+8801611224433", { x: leftMargin, y, size: 11, font });
+
+
+    // // Professional Footer with enhanced styling and blue accent
+    // const footerY = 80;
     
-    const terms = [
-      "1. Work Order: Work order should be issued by the buyer.",
-      `2. Validity: Offer Valid up to ${typedQuotation.validity_days || 30} days from the date of submission.`,
-      `3. Delivery Time: ${typedQuotation.delivery_time || 'lead time is within 30-35 days from the date of getting work order'}.`,
-      `4. Payment Clearance: ${typedQuotation.payment_terms || 'As per buyer\'s rules'}.`
-    ];
+    // // Blue line before footer
+    // page.drawLine({
+    //   start: { x: 0, y: footerY + 25 },
+    //   end: { x: pageWidth, y: footerY + 25 },
+    //   thickness: 1,
+    //   color: rgb(0, 0, 0.8),
+    // });
 
-    terms.forEach(term => {
-      page.drawText(term, { x: leftMargin, y, size: 10, font });
-      y -= 18; // Increased spacing
-    });
+    // // Footer background
+    // page.drawRectangle({
+    //   x: 0,
+    //   y: 0,
+    //   width: pageWidth,
+    //   height: footerY + 20,
+    //   color: rgb(0.95, 0.96, 1), // Light blue background
+    // });
 
-    y -= 30;
+    // // Blue accent at bottom
+    // page.drawRectangle({
+    //   x: 0,
+    //   y: 0,
+    //   width: pageWidth,
+    //   height: 3,
+    //   color: rgb(0, 0, 0.8), // Blue accent
+    // });
 
-    // Closing with better spacing
-    page.drawText("In acceptance of the following terms and conditions with the price we are ready to provide the above", { 
-      x: leftMargin, y, size: 11, font 
-    });
-    y -= 18;
-    page.drawText("mentioned services.", { 
-      x: leftMargin, y, size: 11, font 
-    });
+    // // Footer content in three columns with better spacing
+    // // Email column
+    // page.drawText("Email:", { 
+    //   x: leftMargin, y: footerY - 10, size: 10, font: boldFont, color: rgb(0, 0, 0.8)
+    // });
+    // page.drawText("info@techmakbd.com", { 
+    //   x: leftMargin, y: footerY - 25, size: 9, font 
+    // });
     
-    y -= 30;
-    page.drawText("Thank you", { x: leftMargin, y, size: 12, font });
-
-    y -= 50;
-
-    // Signature section with better spacing
-    page.drawText("A.Azam Tusher", { x: leftMargin, y, size: 12, font: boldFont });
-    y -= 18;
-    page.drawText("CEO", { x: leftMargin, y, size: 11, font });
-    y -= 18;
-    page.drawText("Techmak Technology", { x: leftMargin, y, size: 11, font: boldFont });
-    y -= 18;
-    page.drawText("+8801611224433", { x: leftMargin, y, size: 11, font });
-
-    // Professional Footer with enhanced styling and blue accent
-    const footerY = 80;
+    // // Phone column  
+    // page.drawText("Phone:", { 
+    //   x: leftMargin + 180, y: footerY - 10, size: 10, font: boldFont, color: rgb(0, 0, 0.8)
+    // });
+    // page.drawText("+8801611224433", { 
+    //   x: leftMargin + 180, y: footerY - 25, size: 9, font 
+    // });
     
-    // Blue line before footer
-    page.drawLine({
-      start: { x: 0, y: footerY + 25 },
-      end: { x: pageWidth, y: footerY + 25 },
-      thickness: 1,
-      color: rgb(0, 0, 0.8),
-    });
+    // // Website column
+    // page.drawText("Website:", { 
+    //   x: leftMargin + 350, y: footerY - 10, size: 10, font: boldFont, color: rgb(0, 0, 0.8)
+    // });
+    // page.drawText("www.techmakbd.com", { 
+    //   x: leftMargin + 350, y: footerY - 25, size: 9, font 
+    // });
 
-    // Footer background
-    page.drawRectangle({
-      x: 0,
-      y: 0,
-      width: pageWidth,
-      height: footerY + 20,
-      color: rgb(0.95, 0.96, 1), // Light blue background
-    });
-
-    // Blue accent at bottom
-    page.drawRectangle({
-      x: 0,
-      y: 0,
-      width: pageWidth,
-      height: 3,
-      color: rgb(0, 0, 0.8), // Blue accent
-    });
-
-    // Footer content in three columns with better spacing
-    // Email column
-    page.drawText("Email:", { 
-      x: leftMargin, y: footerY - 10, size: 10, font: boldFont, color: rgb(0, 0, 0.8)
-    });
-    page.drawText("info@techmakbd.com", { 
-      x: leftMargin, y: footerY - 25, size: 9, font 
-    });
-    
-    // Phone column  
-    page.drawText("Phone:", { 
-      x: leftMargin + 180, y: footerY - 10, size: 10, font: boldFont, color: rgb(0, 0, 0.8)
-    });
-    page.drawText("+8801611224433", { 
-      x: leftMargin + 180, y: footerY - 25, size: 9, font 
-    });
-    
-    // Website column
-    page.drawText("Website:", { 
-      x: leftMargin + 350, y: footerY - 10, size: 10, font: boldFont, color: rgb(0, 0, 0.8)
-    });
-    page.drawText("www.techmakbd.com", { 
-      x: leftMargin + 350, y: footerY - 25, size: 9, font 
-    });
-
-    // Address row
-    page.drawText("Address: 4th floor, House# 36/E, Road-02, Block- D, Bashundhara R/A, Dhaka-1229", { 
-      x: leftMargin, y: footerY - 45, size: 9, font, color: rgb(0, 0, 0.7)
-    });
+    // // Address row
+    // page.drawText("Address: 4th floor, House# 36/E, Road-02, Block- D, Bashundhara R/A, Dhaka-1229", { 
+    //   x: leftMargin, y: footerY - 45, size: 9, font, color: rgb(0, 0, 0.7)
+    // });
 
     console.log("Generating PDF...");
     const pdfBytes = await pdfDoc.save();
