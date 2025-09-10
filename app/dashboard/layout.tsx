@@ -211,6 +211,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               avatarUrl={profile.avatar_url}
               onLogout={handleLogout}
               pageTitle={pageTitle}
+              
 
             />
           </div>
