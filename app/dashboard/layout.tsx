@@ -22,7 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     .split("/")
     .filter(Boolean)
     .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-    .join(" > ") || "Dashboard";
+    .join(" -> ") || "Dashboard";
   
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
