@@ -144,7 +144,7 @@ function checkPageBreak(requiredSpace = 40) {
 
 // --- HEADER (Logo + Company Info) ---
 async function drawHeader() {
-  const res = await fetch('https://epfeexfehliszmipvbhe.supabase.co/storage/v1/object/sign/asset/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kYzc2MDhmZi1lM2M5LTQ5YWEtOGQ5Yy0yMGI0ZTJmNDhiMGIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldC9sb2dvLnBuZyIsImlhdCI6MTc1NzQyNjYzNSwiZXhwIjoxOTE1MTA2NjM1fQ.lekzHoerjepNceUrs4fRjyWi-kKaIxu0NPpT0lQpbO0');
+  const res = await fetch('https://epfeexfehliszmipvbhe.supabase.co/storage/v1/object/sign/asset/logo1.jpeg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kYzc2MDhmZi1lM2M5LTQ5YWEtOGQ5Yy0yMGI0ZTJmNDhiMGIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldC9sb2dvMS5qcGVnIiwiaWF0IjoxNzU3NTA0NjAwLCJleHAiOjE5MTUxODQ2MDB9.y1hikMKVpnVwhECBfSnXXmAspns9knyaiFUxH7XzFfo');
   const logoBytes = await res.arrayBuffer();
   const logoImage = await pdfDoc.embedPng(logoBytes);
 
